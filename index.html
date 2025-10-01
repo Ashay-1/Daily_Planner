@@ -974,7 +974,7 @@
         <div class="loading-content">
             <div class="loading-logo">🎯</div>
             <h1 class="loading-title">DAILY PLANNER</h1>
-            <p class="loading-subtitle">|| WHAT SHOULD I DO Right Now ... ||</p>
+            <p class="loading-subtitle">|| WHAT SHOULD I DO TODAY ... ||</p>
             <div class="loading-bar-container">
                 <div class="loading-bar"></div>
             </div>
@@ -987,7 +987,7 @@
             <!-- Header -->
             <div class="header">
                 <h1>🎯 DAILY PLANNER</h1>
-                <p class="subtitle">|| WHAT SHOULD I DO Right Now ... ||</p>
+                <p class="subtitle">|| WHAT SHOULD I DO TODAY ... ||</p>
             </div>
 
             <!-- Main Activity Selection -->
@@ -1014,6 +1014,9 @@
                     </button>
                     <button class="activity-btn" onclick="showActivity('Call Your Friends')">
                         <span>📞 Call Your Friends</span>
+                    </button>
+                    <button class="activity-btn" onclick="showActivity('Sleep')">
+                        <span>😴 Sleep</span>
                     </button>
                 </div>
             </div>
@@ -1178,7 +1181,8 @@
             'Work On Project': { emoji: '💻', count: 0, color: '#6bcf7f', items: {} },
             'Talk With Girlfriend': { emoji: '💑', count: 0, color: '#ff6b9d', items: {} },
             'Gym': { emoji: '💪', count: 0, color: '#ff8c42', items: {} },
-            'Call Your Friends': { emoji: '📞', count: 0, color: '#9b59b6', items: {} }
+            'Call Your Friends': { emoji: '📞', count: 0, color: '#9b59b6', items: {} },
+            'Sleep': { emoji: '😴', count: 0, color: '#4a5568', items: {} }
         };
 
         let combinedChart = null;
@@ -1594,6 +1598,9 @@
             } else if (activity === 'Talk With Girlfriend') {
                 recordActivity(activity, 'General');
                 showConfirmation('💑', 'Talk With Girlfriend Recorded!', 'Activity logged successfully', activityData[activity].count);
+            } else if (activity === 'Sleep') {
+                recordActivity(activity, 'Sleep Session');
+                showConfirmation('😴', 'Sleep Session Recorded!', 'Sweet dreams! Rest well 💤', activityData[activity].count);
             }
         }
 
