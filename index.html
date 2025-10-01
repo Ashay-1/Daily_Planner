@@ -1,0 +1,1913 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Daily Activity Planner - Choose what to do today!">
+    <meta name="theme-color" content="#667eea">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Activity Planner">
+    
+    <title>Daily Activity Planner</title>
+    
+    <!-- Chart.js Library -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" sizes="192x192" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>🎯</text></svg>">
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Space Mono', monospace;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* ========== BOW AND ARROW DESIGN ========== */
+        .bow-arrow-container {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            animation: floatBow 3s ease-in-out infinite;
+            display: none;
+        }
+
+        .bow-arrow-container.visible {
+            display: block;
+        }
+
+        @keyframes floatBow {
+            0%, 100% { transform: translateX(-50%) translateY(0px); }
+            50% { transform: translateX(-50%) translateY(-10px); }
+        }
+
+        .bow-arrow {
+            font-size: 4em;
+            position: relative;
+            filter: drop-shadow(0 5px 15px rgba(0, 0, 0, 0.3));
+            animation: pulseArrow 2s ease-in-out infinite;
+        }
+
+        @keyframes pulseArrow {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        .bow-arrow::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: radial-gradient(circle, 
+                rgba(139, 69, 19, 0.1) 0%, 
+                rgba(101, 67, 33, 0.15) 50%, 
+                transparent 70%);
+            z-index: -1;
+            animation: glowRing 3s ease-in-out infinite;
+        }
+
+        @keyframes glowRing {
+            0%, 100% { box-shadow: 0 0 20px rgba(139, 69, 19, 0.2); }
+            50% { box-shadow: 0 0 40px rgba(139, 69, 19, 0.4); }
+        }
+
+        .target-ring {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            border-radius: 50%;
+            border: 2px solid rgba(139, 69, 19, 0.2);
+            animation: expandRing 3s ease-out infinite;
+            pointer-events: none;
+        }
+
+        .target-ring:nth-child(1) { 
+            width: 100px; 
+            height: 100px;
+            border-color: rgba(160, 82, 45, 0.25);
+        }
+        .target-ring:nth-child(2) { 
+            width: 130px; 
+            height: 130px;
+            animation-delay: 1s;
+            border-color: rgba(139, 69, 19, 0.2);
+        }
+        .target-ring:nth-child(3) { 
+            width: 160px; 
+            height: 160px;
+            animation-delay: 2s;
+            border-color: rgba(101, 67, 33, 0.15);
+        }
+
+        @keyframes expandRing {
+            0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0.5; }
+            50% { opacity: 0.3; }
+            100% { transform: translate(-50%, -50%) scale(1.3); opacity: 0; }
+        }
+
+        /* ========== LOADING SCREEN ========== */
+        #loadingScreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            transition: opacity 0.5s ease, visibility 0.5s ease;
+        }
+
+        #loadingScreen.hidden {
+            opacity: 0;
+            visibility: hidden;
+        }
+
+        .loading-content {
+            text-align: center;
+            animation: fadeInUp 0.8s ease-out;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .loading-logo {
+            font-size: 5em;
+            margin-bottom: 20px;
+            animation: bounce 2s ease-in-out infinite;
+            filter: drop-shadow(0 5px 15px rgba(0, 0, 0, 0.3));
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+        }
+
+        .loading-title {
+            font-size: 2.5em;
+            font-weight: 700;
+            letter-spacing: -2px;
+            color: #ffffff;
+            text-transform: uppercase;
+            margin-bottom: 15px;
+            text-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .loading-subtitle {
+            font-size: 1em;
+            color: rgba(255, 255, 255, 0.9);
+            letter-spacing: 3px;
+            margin-bottom: 40px;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .loading-bar-container {
+            width: 300px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 0 auto;
+        }
+
+        .loading-bar {
+            height: 100%;
+            background: #ffffff;
+            border-radius: 10px;
+            animation: loadingProgress 2s ease-in-out forwards;
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.8);
+        }
+
+        @keyframes loadingProgress {
+            0% { width: 0%; }
+            100% { width: 100%; }
+        }
+
+        #loadingScreen::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: radial-gradient(circle, rgba(255, 255, 255, 0.1) 1px, transparent 1px);
+            background-size: 20px 20px;
+            opacity: 0.5;
+            animation: movePattern 20s linear infinite;
+        }
+
+        @keyframes movePattern {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(20px, 20px); }
+        }
+
+        /* ========== MAIN APP ========== */
+        #mainApp {
+            padding: 20px;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+            margin-top: 120px;
+        }
+
+        #mainApp.visible {
+            opacity: 1;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: radial-gradient(circle, rgba(255, 255, 255, 0.1) 1px, transparent 1px);
+            background-size: 20px 20px;
+            opacity: 0.5;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* ========== TOP BUTTONS ========== */
+        .top-left-btn {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: #6c757d;
+            color: white;
+            border: 2px solid #6c757d;
+            padding: 12px 20px;
+            border-radius: 50px;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.85em;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 5px 20px rgba(108, 117, 125, 0.4);
+            z-index: 1000;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .top-left-btn:hover {
+            background: #5a6268;
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(108, 117, 125, 0.6);
+        }
+
+        .monitor-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #ff6b6b 0%, #ff8e53 100%);
+            color: white;
+            border: 2px solid #ff6b6b;
+            padding: 15px 25px;
+            border-radius: 50px;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.9em;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 5px 20px rgba(255, 107, 107, 0.4);
+            z-index: 1000;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .monitor-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(255, 107, 107, 0.6);
+        }
+
+        /* Header Section */
+        .header {
+            text-align: center;
+            margin-bottom: 60px;
+            padding: 40px 20px;
+            border: 2px solid #ffffff;
+            background: rgba(255, 255, 255, 0.95);
+            position: relative;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            animation: slideDown 0.6s ease-out 0.5s backwards;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-50px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            background: linear-gradient(45deg, #667eea 0%, transparent 50%, #764ba2 100%);
+            z-index: -1;
+            opacity: 0.3;
+        }
+
+        h1 {
+            font-size: 2.5em;
+            font-weight: 700;
+            letter-spacing: -2px;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            font-size: 0.9em;
+            color: #667eea;
+            letter-spacing: 2px;
+            font-weight: 700;
+        }
+
+        /* Section Styling */
+        .section {
+            margin-bottom: 40px;
+            background: rgba(255, 255, 255, 0.95);
+            border: 2px solid #ffffff;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+            animation: fadeIn 0.6s ease-out 0.7s backwards;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .section-title {
+            font-size: 1.2em;
+            margin-bottom: 25px;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            position: relative;
+            padding-bottom: 15px;
+        }
+
+        .section-title::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 60px;
+            height: 3px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        /* Activity Grid */
+        .activity-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .activity-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #ffffff;
+            border: 2px solid #667eea;
+            padding: 25px 15px;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.85em;
+            font-weight: 700;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .activity-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: #ffffff;
+            transition: left 0.3s ease;
+            z-index: 0;
+        }
+
+        .activity-btn:hover {
+            color: #667eea;
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.5);
+        }
+
+        .activity-btn:hover::before {
+            left: 0;
+        }
+
+        .activity-btn span {
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Hidden Sections */
+        .restaurant-section,
+        .play-section,
+        .menu-section,
+        .monitor-section,
+        .study-section,
+        .project-section,
+        .gym-section,
+        .friends-section,
+        .confirmation-section {
+            display: none;
+            animation: slideUp 0.4s ease-out;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Restaurant Cards */
+        .restaurant-card, .category-card {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            padding: 20px;
+            margin-bottom: 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .restaurant-card::before, .category-card::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 4px;
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            transform: scaleY(0);
+            transition: transform 0.3s ease;
+        }
+
+        .restaurant-card:hover, .category-card:hover {
+            border-color: #667eea;
+            background: #ffffff;
+            transform: translateX(5px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.2);
+        }
+
+        .restaurant-card:hover::before, .category-card:hover::before {
+            transform: scaleY(1);
+        }
+
+        .restaurant-name, .category-name {
+            font-size: 1.3em;
+            font-weight: 700;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #333;
+        }
+
+        .restaurant-desc, .category-desc {
+            font-size: 0.8em;
+            color: #667eea;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        /* Daily Menu Selector */
+        .day-selector {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 10px;
+            margin: 20px 0;
+        }
+
+        .day-btn {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            border: 2px solid #28a745;
+            padding: 12px 8px;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.75em;
+            font-weight: 700;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+
+        .day-btn:hover, .day-btn.active {
+            background: #ffffff;
+            color: #28a745;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(40, 167, 69, 0.3);
+        }
+
+        /* ========== COLLAPSIBLE MEAL SECTIONS ========== */
+        .meal-section {
+            margin-bottom: 20px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #ffffff;
+            transition: all 0.3s ease;
+        }
+
+        .meal-section:hover {
+            box-shadow: 0 3px 10px rgba(102, 126, 234, 0.2);
+        }
+
+        .meal-header {
+            background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
+            color: white;
+            padding: 18px 20px;
+            font-weight: 700;
+            font-size: 1em;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s ease;
+            user-select: none;
+        }
+
+        .meal-header:hover {
+            background: linear-gradient(135deg, #138496 0%, #117a8b 100%);
+        }
+
+        .meal-header.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .collapse-icon {
+            font-size: 1.2em;
+            transition: transform 0.3s ease;
+            display: inline-block;
+        }
+
+        .collapse-icon.rotated {
+            transform: rotate(180deg);
+        }
+
+        .meal-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.4s ease, padding 0.4s ease;
+            padding: 0 20px;
+        }
+
+        .meal-content.expanded {
+            max-height: 2000px;
+            padding: 20px;
+        }
+
+        .menu-items {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .menu-item {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            padding: 15px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.85em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            position: relative;
+            color: #333;
+            border-radius: 6px;
+        }
+
+        .menu-item::after {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            z-index: -1;
+            border-radius: 6px;
+        }
+
+        .menu-item:hover {
+            color: #ffffff;
+            border-color: transparent;
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .menu-item:hover::after {
+            opacity: 1;
+        }
+
+        /* Play Options */
+        .play-option {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            border: 2px solid #f093fb;
+            color: #ffffff;
+            padding: 25px;
+            margin-bottom: 15px;
+            text-align: center;
+            font-size: 1em;
+            font-weight: 700;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            transition: all 0.3s ease;
+            box-shadow: 0 8px 20px rgba(245, 87, 108, 0.3);
+        }
+
+        .play-option:hover {
+            background: #ffffff;
+            color: #f5576c;
+            transform: translateY(-3px);
+            box-shadow: 0 12px 30px rgba(245, 87, 108, 0.4);
+        }
+
+        /* ========== CONFIRMATION & ACTION BUTTONS ========== */
+        .select-btn, .another-btn {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            border: 2px solid #28a745;
+            padding: 12px 30px;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.9em;
+            font-weight: 700;
+            cursor: pointer;
+            margin: 10px 5px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            transition: all 0.3s ease;
+            border-radius: 8px;
+            display: inline-block;
+        }
+
+        .select-btn:hover, .another-btn:hover {
+            background: #ffffff;
+            color: #28a745;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(40, 167, 69, 0.4);
+        }
+
+        /* Message Box */
+        .message {
+            background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+            border: 2px solid #28a745;
+            color: #155724;
+            padding: 30px;
+            margin-top: 30px;
+            text-align: center;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            box-shadow: 0 5px 15px rgba(40, 167, 69, 0.2);
+        }
+
+        .emoji {
+            font-size: 1.5em;
+            margin-right: 10px;
+        }
+
+        /* ========== MONITOR SECTION ========== */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+
+        .stat-card {
+            background: #ffffff;
+            border: 2px solid #e9ecef;
+            padding: 25px;
+            border-radius: 12px;
+            text-align: center;
+            transition: all 0.3s ease;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+            cursor: pointer;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+            border-color: #667eea;
+        }
+
+        .stat-emoji {
+            font-size: 3em;
+            margin-bottom: 15px;
+        }
+
+        .stat-name {
+            font-size: 0.9em;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 10px;
+        }
+
+        .stat-count {
+            font-size: 2.5em;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .stat-percentage {
+            font-size: 0.85em;
+            color: #28a745;
+            margin-top: 8px;
+            font-weight: 700;
+        }
+
+        /* ========== DETAILED BREAKDOWN ========== */
+        .detail-section {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 30px;
+        }
+
+        .detail-title {
+            font-size: 1.2em;
+            font-weight: 700;
+            margin-bottom: 20px;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .detail-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .detail-item {
+            background: #ffffff;
+            border: 1px solid #e9ecef;
+            padding: 15px 20px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s ease;
+        }
+
+        .detail-item:hover {
+            border-color: #667eea;
+            transform: translateX(5px);
+            box-shadow: 0 3px 10px rgba(102, 126, 234, 0.2);
+        }
+
+        .detail-item-name {
+            font-size: 0.9em;
+            color: #333;
+            font-weight: 600;
+        }
+
+        .detail-item-count {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 700;
+        }
+
+        .no-data {
+            text-align: center;
+            color: #999;
+            font-style: italic;
+            padding: 20px;
+        }
+
+        .chart-container {
+            background: #ffffff;
+            border: 2px solid #e9ecef;
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .chart-title {
+            text-align: center;
+            font-size: 1.3em;
+            font-weight: 700;
+            margin-bottom: 25px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: #333;
+        }
+
+        .chart-canvas {
+            max-height: 400px;
+        }
+
+        .reset-btn {
+            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+            color: white;
+            border: 2px solid #dc3545;
+            padding: 15px 30px;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.85em;
+            cursor: pointer;
+            margin-top: 30px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            transition: all 0.3s ease;
+            font-weight: 700;
+            border-radius: 8px;
+        }
+
+        .reset-btn:hover {
+            background: #ffffff;
+            color: #dc3545;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(220, 53, 69, 0.4);
+        }
+
+        /* Install Button */
+        .install-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 25px;
+            border-radius: 50px;
+            font-family: 'Space Mono', monospace;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+            display: none;
+            z-index: 1000;
+            transition: all 0.3s ease;
+        }
+
+        .install-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.6);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .bow-arrow-container { display: none !important; }
+            #mainApp { margin-top: 20px; }
+            .monitor-btn { top: 10px; right: 10px; padding: 10px 15px; font-size: 0.75em; }
+            .top-left-btn { top: 70px; left: 10px; padding: 8px 15px; font-size: 0.75em; }
+            
+            .loading-logo { font-size: 4em; }
+            .loading-title { font-size: 1.8em; }
+            .loading-subtitle { font-size: 0.8em; }
+            .loading-bar-container { width: 250px; }
+            
+            h1 { font-size: 1.8em; }
+            .activity-grid { grid-template-columns: 1fr; }
+            .menu-items { grid-template-columns: 1fr; }
+            .section { padding: 20px; }
+            .day-selector { grid-template-columns: repeat(2, 1fr); }
+            .stats-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Natural Bow and Arrow on Top -->
+    <div class="bow-arrow-container" id="bowArrow">
+        <div class="target-ring"></div>
+        <div class="target-ring"></div>
+        <div class="target-ring"></div>
+        <div class="bow-arrow">🏹</div>
+    </div>
+
+    <!-- Top Left Back Button -->
+    <button class="top-left-btn" onclick="handleBack()" id="backBtn" style="display: none;">← Back</button>
+
+    <!-- Monitor Button -->
+    <button class="monitor-btn" onclick="showMonitor()" id="monitorBtn">📊 Monitor</button>
+
+    <!-- Loading Screen -->
+    <div id="loadingScreen">
+        <div class="loading-content">
+            <div class="loading-logo">🎯</div>
+            <h1 class="loading-title">DAILY PLANNER</h1>
+            <p class="loading-subtitle">|| WHAT SHOULD I DO TODAY ... ||</p>
+            <div class="loading-bar-container">
+                <div class="loading-bar"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main App -->
+    <div id="mainApp">
+        <div class="container">
+            <!-- Header -->
+            <div class="header">
+                <h1>🎯 DAILY PLANNER</h1>
+                <p class="subtitle">|| WHAT SHOULD I DO TODAY ... ||</p>
+            </div>
+
+            <!-- Main Activity Selection -->
+            <div id="mainSection" class="section">
+                <h2 class="section-title">→ Choose Your Activity</h2>
+                <div class="activity-grid">
+                    <button class="activity-btn" onclick="showActivity('Play')">
+                        <span>🏸 Play</span>
+                    </button>
+                    <button class="activity-btn" onclick="showActivity('Eat')">
+                        <span>🍽️ Eat</span>
+                    </button>
+                    <button class="activity-btn" onclick="showActivity('Study')">
+                        <span>📚 Study</span>
+                    </button>
+                    <button class="activity-btn" onclick="showActivity('Work On Project')">
+                        <span>💻 Work On Project</span>
+                    </button>
+                    <button class="activity-btn" onclick="showActivity('Talk With Girlfriend')">
+                        <span>💑 Talk With Girlfriend</span>
+                    </button>
+                    <button class="activity-btn" onclick="showActivity('Gym')">
+                        <span>💪 Gym</span>
+                    </button>
+                    <button class="activity-btn" onclick="showActivity('Call Your Friends')">
+                        <span>📞 Call Your Friends</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Play Section -->
+            <div id="playSection" class="play-section section">
+                <h2 class="section-title">→ Choose Your Game</h2>
+                <div class="play-option" onclick="selectPlay('Badminton')">
+                    🏸 Badminton
+                </div>
+                <div class="play-option" onclick="selectPlay('Table Tennis')">
+                    🏓 Table Tennis
+                </div>
+                <div class="play-option" onclick="selectPlay('Crunches And Push-Up Competition')">
+                    💪 Crunches And Push-Up Competition
+                </div>
+            </div>
+
+            <!-- Eat Section -->
+            <div id="eatSection" class="restaurant-section section">
+                <h2 class="section-title">→ Select Restaurant</h2>
+                
+                <div class="restaurant-card" onclick="showMenu('jicafe')">
+                    <div class="restaurant-name">🍳 01. J/I-Cafe</div>
+                    <div class="restaurant-desc">Popular Breakfast & Snacks</div>
+                </div>
+
+                <div class="restaurant-card" onclick="showMenu('tasty')">
+                    <div class="restaurant-name">🍗 02. Tasty</div>
+                    <div class="restaurant-desc">Local Favorites</div>
+                </div>
+
+                <div class="restaurant-card" onclick="showMenu('mess')">
+                    <div class="restaurant-name">🍱 03. Mess</div>
+                    <div class="restaurant-desc">Daily Mess Menu (Aug-Oct 2025)</div>
+                </div>
+            </div>
+
+            <!-- Study Section -->
+            <div id="studySection" class="study-section section">
+                <h2 class="section-title">→ Choose Study Category</h2>
+                
+                <div class="category-card" onclick="showStudyCategory('Course Work')">
+                    <div class="category-name">📖 Course Work</div>
+                    <div class="category-desc">6 Subjects Available</div>
+                </div>
+
+                <div class="category-card" onclick="showStudyCategory('Lab Studies')">
+                    <div class="category-name">🔬 Lab Studies</div>
+                    <div class="category-desc">Lab Preparation & Reading</div>
+                </div>
+            </div>
+
+            <!-- Work On Project Section -->
+            <div id="projectSection" class="project-section section">
+                <h2 class="section-title">→ Select Project</h2>
+                <div class="menu-items" id="projectItems"></div>
+            </div>
+
+            <!-- Gym Section -->
+            <div id="gymSection" class="gym-section section">
+                <h2 class="section-title">→ Select Muscle Group</h2>
+                <div class="menu-items" id="gymItems"></div>
+            </div>
+
+            <!-- Call Friends Section -->
+            <div id="friendsSection" class="friends-section section">
+                <h2 class="section-title">→ Call Which Friend?</h2>
+                <div class="menu-items" id="friendsItems"></div>
+            </div>
+
+            <!-- Menu Section -->
+            <div id="menuSection" class="menu-section section">
+                <h2 class="section-title" id="menuTitle"></h2>
+                
+                <div id="daySelector" class="day-selector" style="display: none;">
+                    <button class="day-btn" onclick="showDayMenu('Monday')" id="day-Monday">Mon</button>
+                    <button class="day-btn" onclick="showDayMenu('Tuesday')" id="day-Tuesday">Tue</button>
+                    <button class="day-btn" onclick="showDayMenu('Wednesday')" id="day-Wednesday">Wed</button>
+                    <button class="day-btn" onclick="showDayMenu('Thursday')" id="day-Thursday">Thu</button>
+                    <button class="day-btn" onclick="showDayMenu('Friday')" id="day-Friday">Fri</button>
+                    <button class="day-btn" onclick="showDayMenu('Saturday')" id="day-Saturday">Sat</button>
+                    <button class="day-btn" onclick="showDayMenu('Sunday')" id="day-Sunday">Sun</button>
+                </div>
+                
+                <div id="menuContainer"></div>
+            </div>
+
+            <!-- Confirmation Section -->
+            <div id="confirmationSection" class="confirmation-section section">
+                <h2 class="section-title" id="confirmTitle">→ Confirmed & Tracked!</h2>
+                <div class="message" id="confirmMessage"></div>
+                <div style="text-align: center; margin-top: 20px;">
+                    <button class="another-btn" onclick="selectAnother()">✅ Select Another</button>
+                    <button class="another-btn" onclick="goToHome()">🏠 Go Home</button>
+                </div>
+            </div>
+
+            <!-- Monitor Section -->
+            <div id="monitorSection" class="monitor-section section">
+                <h2 class="section-title">📊 Activity Monitor</h2>
+                
+                <!-- Individual Activity Stats -->
+                <div class="stats-grid" id="statsGrid"></div>
+
+                <!-- Detailed Breakdown for Each Activity -->
+                <div id="detailedBreakdown"></div>
+
+                <!-- Combined Pie Chart -->
+                <div class="chart-container">
+                    <h3 class="chart-title">🎯 Overall Activity Distribution</h3>
+                    <canvas id="combinedChart" class="chart-canvas"></canvas>
+                </div>
+
+                <!-- Individual Activity Charts -->
+                <div id="individualCharts"></div>
+
+                <button class="reset-btn" onclick="resetAllData()">🗑️ Reset All Data</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Install Button -->
+    <button id="installBtn" class="install-btn">📱 Install App</button>
+
+    <script>
+        // ========== NAVIGATION STACK ==========
+        let navigationStack = [];
+        let lastActivity = '';
+        let lastCategory = '';
+        let lastRestaurant = '';
+
+        // ========== DATA STRUCTURES ==========
+        const studyData = {
+            'Course Work': {
+                'Optics': ['Daily Revision', 'Assignment', 'Extensive Study', 'Exam Preparation'],
+                'Thermodynamics': ['Daily Revision', 'Assignment', 'Extensive Study', 'Exam Preparation'],
+                'Probability': ['Daily Revision', 'Assignment', 'Extensive Study', 'Exam Preparation'],
+                'Vector Space And Calculus': ['Daily Revision', 'Assignment', 'Extensive Study', 'Exam Preparation'],
+                'Graph Theory': ['Daily Revision', 'Assignment', 'Extensive Study', 'Exam Preparation', 'Project Work'],
+                'Introduction To AI': ['Daily Revision', 'Assignment', 'Extensive Study', 'Exam Preparation', 'Project Work']
+            },
+            'Lab Studies': ['Reading Textbooks', 'Reading What PDF Sent To Me', 'Planning Lab work', 'Planning For Next Experiment']
+        };
+
+        const projectData = ['Patna Drainage System Planning', 'Logistics Model Creation', 'Hydrogen Production', 'Hydrogen Storage', 'Fuel Cell'];
+
+        const gymData = {
+            'Back': ['General Workout'],
+            'Chest': ['General Workout'],
+            'Arms And Shoulder': ['General Workout'],
+            'Legs': ['General Workout']
+        };
+
+        const friendsData = ['Aviral', 'Raj', 'Devansh Tandon'];
+
+        // ========== DATA TRACKING SYSTEM ==========
+        const activityData = {
+            'Play': { emoji: '🏸', count: 0, color: '#f093fb', items: {} },
+            'Eat': { emoji: '🍽️', count: 0, color: '#667eea', items: {} },
+            'Study': { emoji: '📚', count: 0, color: '#ffd93d', items: {} },
+            'Work On Project': { emoji: '💻', count: 0, color: '#6bcf7f', items: {} },
+            'Talk With Girlfriend': { emoji: '💑', count: 0, color: '#ff6b9d', items: {} },
+            'Gym': { emoji: '💪', count: 0, color: '#ff8c42', items: {} },
+            'Call Your Friends': { emoji: '📞', count: 0, color: '#9b59b6', items: {} }
+        };
+
+        let combinedChart = null;
+
+        // Load saved data from localStorage
+        function loadActivityData() {
+            const saved = localStorage.getItem('activityTracking');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                Object.keys(activityData).forEach(key => {
+                    if (parsed[key]) {
+                        activityData[key].count = parsed[key].count || 0;
+                        activityData[key].items = parsed[key].items || {};
+                    }
+                });
+            }
+        }
+
+        // Save data to localStorage
+        function saveActivityData() {
+            localStorage.setItem('activityTracking', JSON.stringify(activityData));
+        }
+
+        // Record activity selection with detailed item
+        function recordActivity(activityName, itemName = 'General') {
+            if (activityData[activityName]) {
+                activityData[activityName].count++;
+                
+                if (!activityData[activityName].items[itemName]) {
+                    activityData[activityName].items[itemName] = 0;
+                }
+                activityData[activityName].items[itemName]++;
+                
+                saveActivityData();
+            }
+        }
+
+        // Calculate percentages
+        function calculatePercentages() {
+            const total = Object.values(activityData).reduce((sum, activity) => sum + activity.count, 0);
+            const percentages = {};
+            Object.keys(activityData).forEach(key => {
+                percentages[key] = total > 0 ? ((activityData[key].count / total) * 100).toFixed(1) : 0;
+            });
+            return { percentages, total };
+        }
+
+        // Show/Hide back button
+        function toggleBackButton(show) {
+            const backBtn = document.getElementById('backBtn');
+            const bowArrow = document.getElementById('bowArrow');
+            if (show) {
+                backBtn.style.display = 'block';
+                bowArrow.classList.remove('visible');
+            } else {
+                backBtn.style.display = 'none';
+                bowArrow.classList.add('visible');
+            }
+        }
+
+        // Handle back navigation
+        function handleBack() {
+            if (navigationStack.length > 0) {
+                const previous = navigationStack.pop();
+                if (previous === 'main') {
+                    goToHome();
+                } else if (previous.startsWith('activity:')) {
+                    const activity = previous.split(':')[1];
+                    showActivity(activity);
+                } else if (previous.startsWith('studyCategory:')) {
+                    const category = previous.split(':')[1];
+                    showStudyCategory(category);
+                } else if (previous.startsWith('restaurant:')) {
+                    const restaurant = previous.split(':')[1];
+                    showMenu(restaurant);
+                } else if (previous === 'eat') {
+                    hideAllSections();
+                    document.getElementById('eatSection').style.display = 'block';
+                    toggleBackButton(true);
+                } else if (previous === 'study') {
+                    hideAllSections();
+                    document.getElementById('studySection').style.display = 'block';
+                    toggleBackButton(true);
+                }
+            } else {
+                goToHome();
+            }
+        }
+
+        // Select Another - goes back to last sub-category
+        function selectAnother() {
+            handleBack();
+        }
+
+        // Go to home
+        function goToHome() {
+            navigationStack = [];
+            hideAllSections();
+            document.getElementById('mainSection').style.display = 'block';
+            toggleBackButton(false);
+        }
+
+        // Show confirmation
+        function showConfirmation(emoji, title, details, count) {
+            hideAllSections();
+            document.getElementById('confirmationSection').style.display = 'block';
+            document.getElementById('confirmTitle').textContent = '→ Confirmed & Tracked!';
+            document.getElementById('confirmMessage').innerHTML = `
+                <span class="emoji">${emoji}</span>
+                ${title}<br>
+                <small style="font-size: 0.7em; margin-top: 10px; display: block;">${details}</small>
+                <small style="font-size: 0.7em; margin-top: 10px; display: block;">Total: ${count} times</small>
+            `;
+            toggleBackButton(true);
+        }
+
+        // Show Monitor Section
+        function showMonitor() {
+            navigationStack = [];
+            hideAllSections();
+            document.getElementById('monitorSection').style.display = 'block';
+            toggleBackButton(true);
+
+            renderStatistics();
+            renderDetailedBreakdown();
+            renderCombinedChart();
+            renderIndividualCharts();
+        }
+
+        // Render Statistics Cards
+        function renderStatistics() {
+            const statsGrid = document.getElementById('statsGrid');
+            const { percentages, total } = calculatePercentages();
+
+            statsGrid.innerHTML = '';
+            Object.keys(activityData).forEach(key => {
+                const activity = activityData[key];
+                const statCard = document.createElement('div');
+                statCard.className = 'stat-card';
+                statCard.innerHTML = `
+                    <div class="stat-emoji">${activity.emoji}</div>
+                    <div class="stat-name">${key}</div>
+                    <div class="stat-count">${activity.count}</div>
+                    <div class="stat-percentage">${percentages[key]}%</div>
+                `;
+                statCard.title = `${key}: ${activity.count} selections (${percentages[key]}%)`;
+                statsGrid.appendChild(statCard);
+            });
+        }
+
+        // Render Detailed Breakdown for Each Activity
+        function renderDetailedBreakdown() {
+            const container = document.getElementById('detailedBreakdown');
+            container.innerHTML = '';
+
+            Object.keys(activityData).forEach(key => {
+                const activity = activityData[key];
+                const items = activity.items;
+                
+                if (activity.count > 0) {
+                    const detailSection = document.createElement('div');
+                    detailSection.className = 'detail-section';
+                    
+                    const detailTitle = document.createElement('h3');
+                    detailTitle.className = 'detail-title';
+                    detailTitle.innerHTML = `${activity.emoji} ${key} - Detailed Breakdown`;
+                    
+                    const detailList = document.createElement('ul');
+                    detailList.className = 'detail-list';
+                    
+                    if (Object.keys(items).length > 0) {
+                        const sortedItems = Object.entries(items).sort((a, b) => b[1] - a[1]);
+                        
+                        sortedItems.forEach(([itemName, itemCount]) => {
+                            const itemPercentage = ((itemCount / activity.count) * 100).toFixed(1);
+                            const listItem = document.createElement('li');
+                            listItem.className = 'detail-item';
+                            listItem.innerHTML = `
+                                <span class="detail-item-name">${itemName}</span>
+                                <span class="detail-item-count">${itemCount} times (${itemPercentage}%)</span>
+                            `;
+                            detailList.appendChild(listItem);
+                        });
+                    } else {
+                        detailList.innerHTML = '<div class="no-data">No detailed data available</div>';
+                    }
+                    
+                    detailSection.appendChild(detailTitle);
+                    detailSection.appendChild(detailList);
+                    container.appendChild(detailSection);
+                }
+            });
+        }
+
+        // Render Combined Pie Chart
+        function renderCombinedChart() {
+            const ctx = document.getElementById('combinedChart');
+            
+            if (combinedChart) {
+                combinedChart.destroy();
+            }
+
+            const labels = Object.keys(activityData);
+            const data = labels.map(key => activityData[key].count);
+            const colors = labels.map(key => activityData[key].color);
+
+            combinedChart = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: colors,
+                        borderWidth: 2,
+                        borderColor: '#ffffff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                font: {
+                                    family: 'Space Mono',
+                                    size: 12
+                                },
+                                padding: 15,
+                                usePointStyle: true
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.parsed || 0;
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                                    return `${label}: ${value} clicks (${percentage}%)`;
+                                }
+                            },
+                            titleFont: {
+                                family: 'Space Mono',
+                                size: 14
+                            },
+                            bodyFont: {
+                                family: 'Space Mono',
+                                size: 13
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Render Individual Activity Charts
+        function renderIndividualCharts() {
+            const container = document.getElementById('individualCharts');
+            container.innerHTML = '';
+
+            Object.keys(activityData).forEach((key, index) => {
+                const activity = activityData[key];
+                if (activity.count > 0) {
+                    const chartDiv = document.createElement('div');
+                    chartDiv.className = 'chart-container';
+                    chartDiv.innerHTML = `
+                        <h3 class="chart-title">${activity.emoji} ${key}</h3>
+                        <canvas id="chart-${index}" class="chart-canvas"></canvas>
+                    `;
+                    container.appendChild(chartDiv);
+
+                    const ctx = document.getElementById(`chart-${index}`);
+                    const { percentages } = calculatePercentages();
+                    
+                    new Chart(ctx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: [key, 'Other Activities'],
+                            datasets: [{
+                                data: [activity.count, Object.values(activityData).reduce((sum, a) => sum + a.count, 0) - activity.count],
+                                backgroundColor: [activity.color, '#e9ecef'],
+                                borderWidth: 2,
+                                borderColor: '#ffffff'
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: true,
+                            plugins: {
+                                legend: {
+                                    position: 'bottom',
+                                    labels: {
+                                        font: {
+                                            family: 'Space Mono',
+                                            size: 11
+                                        },
+                                        padding: 10
+                                    }
+                                },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(context) {
+                                            const value = context.parsed || 0;
+                                            return `${context.label}: ${value} clicks (${percentages[key]}%)`;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+            });
+        }
+
+        // Reset All Data
+        function resetAllData() {
+            if (confirm('Are you sure you want to reset all activity data? This cannot be undone.')) {
+                Object.keys(activityData).forEach(key => {
+                    activityData[key].count = 0;
+                    activityData[key].items = {};
+                });
+                saveActivityData();
+                showMonitor();
+            }
+        }
+
+        // ========== LOADING SCREEN ==========
+        window.addEventListener('load', function() {
+            loadActivityData();
+            setTimeout(() => {
+                document.getElementById('loadingScreen').classList.add('hidden');
+                document.getElementById('mainApp').classList.add('visible');
+                document.getElementById('bowArrow').classList.add('visible');
+            }, 2000);
+        });
+
+        // ========== PWA INSTALL ==========
+        let deferredPrompt;
+        const installBtn = document.getElementById('installBtn');
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            installBtn.style.display = 'block';
+        });
+
+        installBtn.addEventListener('click', async () => {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                deferredPrompt = null;
+                installBtn.style.display = 'none';
+            }
+        });
+
+        // ========== SERVICE WORKER ==========
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js')
+                .then(reg => console.log('Service Worker registered'))
+                .catch(err => console.log('Service Worker registration failed'));
+        }
+
+        // ========== HELPER FUNCTIONS ==========
+        function hideAllSections() {
+            document.getElementById('mainSection').style.display = 'none';
+            document.getElementById('playSection').style.display = 'none';
+            document.getElementById('eatSection').style.display = 'none';
+            document.getElementById('studySection').style.display = 'none';
+            document.getElementById('projectSection').style.display = 'none';
+            document.getElementById('gymSection').style.display = 'none';
+            document.getElementById('friendsSection').style.display = 'none';
+            document.getElementById('menuSection').style.display = 'none';
+            document.getElementById('monitorSection').style.display = 'none';
+            document.getElementById('confirmationSection').style.display = 'none';
+        }
+
+        function toggleMeal(mealType) {
+            const content = document.getElementById(`${mealType}-content`);
+            const header = document.getElementById(`${mealType}-header`);
+            const icon = document.getElementById(`${mealType}-icon`);
+            
+            if (content && content.classList.contains('expanded')) {
+                content.classList.remove('expanded');
+                header.classList.remove('active');
+                icon.classList.remove('rotated');
+            } else if (content) {
+                content.classList.add('expanded');
+                header.classList.add('active');
+                icon.classList.add('rotated');
+            }
+        }
+
+        // ========== NAVIGATION FUNCTIONS ==========
+        function showActivity(activity) {
+            navigationStack.push('main');
+            lastActivity = activity;
+            hideAllSections();
+            toggleBackButton(true);
+
+            if (activity === 'Play') {
+                document.getElementById('playSection').style.display = 'block';
+            } else if (activity === 'Eat') {
+                document.getElementById('eatSection').style.display = 'block';
+            } else if (activity === 'Study') {
+                document.getElementById('studySection').style.display = 'block';
+            } else if (activity === 'Work On Project') {
+                showProjectSection();
+            } else if (activity === 'Gym') {
+                showGymSection();
+            } else if (activity === 'Call Your Friends') {
+                showFriendsSection();
+            } else if (activity === 'Talk With Girlfriend') {
+                recordActivity(activity, 'General');
+                showConfirmation('💑', 'Talk With Girlfriend Recorded!', 'Activity logged successfully', activityData[activity].count);
+            }
+        }
+
+        function selectPlay(game) {
+            recordActivity('Play', game);
+            const gameEmojis = {
+                'Badminton': '🏸',
+                'Table Tennis': '🏓',
+                'Crunches And Push-Up Competition': '💪'
+            };
+            showConfirmation(gameEmojis[game], `${game} Recorded!`, `Play activity: ${game}`, activityData['Play'].count);
+        }
+
+        // ========== STUDY SECTION ==========
+        function showStudyCategory(category) {
+            navigationStack.push('study');
+            lastCategory = category;
+            hideAllSections();
+            const menuSection = document.getElementById('menuSection');
+            const menuTitle = document.getElementById('menuTitle');
+            const menuContainer = document.getElementById('menuContainer');
+            
+            menuSection.style.display = 'block';
+            menuTitle.textContent = `→ 📚 ${category}`;
+            menuContainer.innerHTML = '';
+
+            if (category === 'Course Work') {
+                Object.keys(studyData['Course Work']).forEach(subject => {
+                    const subjectSection = document.createElement('div');
+                    subjectSection.className = 'meal-section';
+                    
+                    const subjectHeader = document.createElement('div');
+                    subjectHeader.className = 'meal-header';
+                    subjectHeader.id = `${subject}-header`;
+                    subjectHeader.onclick = () => toggleMeal(subject);
+                    
+                    const subjectTitle = document.createElement('span');
+                    subjectTitle.textContent = `📖 ${subject.toUpperCase()}`;
+                    
+                    const icon = document.createElement('span');
+                    icon.className = 'collapse-icon';
+                    icon.id = `${subject}-icon`;
+                    icon.textContent = '▼';
+                    
+                    subjectHeader.appendChild(subjectTitle);
+                    subjectHeader.appendChild(icon);
+                    
+                    const subjectContent = document.createElement('div');
+                    subjectContent.className = 'meal-content';
+                    subjectContent.id = `${subject}-content`;
+                    
+                    const activityItems = document.createElement('div');
+                    activityItems.className = 'menu-items';
+                    
+                    studyData['Course Work'][subject].forEach(activity => {
+                        const itemDiv = document.createElement('div');
+                        itemDiv.className = 'menu-item';
+                        itemDiv.textContent = activity;
+                        itemDiv.onclick = () => selectStudyItem(category, subject, activity);
+                        activityItems.appendChild(itemDiv);
+                    });
+                    
+                    subjectContent.appendChild(activityItems);
+                    subjectSection.appendChild(subjectHeader);
+                    subjectSection.appendChild(subjectContent);
+                    menuContainer.appendChild(subjectSection);
+                });
+            } else {
+                const activityItems = document.createElement('div');
+                activityItems.className = 'menu-items';
+                
+                studyData['Lab Studies'].forEach(activity => {
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = 'menu-item';
+                    itemDiv.textContent = activity;
+                    itemDiv.onclick = () => selectStudyItem(category, 'Lab Studies', activity);
+                    activityItems.appendChild(itemDiv);
+                });
+                
+                menuContainer.appendChild(activityItems);
+            }
+            toggleBackButton(true);
+        }
+
+        function selectStudyItem(category, subject, activity) {
+            const itemName = `${category} > ${subject} > ${activity}`;
+            recordActivity('Study', itemName);
+            showConfirmation('📚', 'Study Session Recorded!', itemName, activityData['Study'].count);
+        }
+
+        // ========== PROJECT SECTION ==========
+        function showProjectSection() {
+            hideAllSections();
+            const projectSection = document.getElementById('projectSection');
+            const projectItems = document.getElementById('projectItems');
+            
+            projectItems.innerHTML = '';
+            projectData.forEach(project => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'menu-item';
+                itemDiv.textContent = project;
+                itemDiv.onclick = () => selectProject(project);
+                projectItems.appendChild(itemDiv);
+            });
+            
+            projectSection.style.display = 'block';
+            toggleBackButton(true);
+        }
+
+        function selectProject(project) {
+            recordActivity('Work On Project', project);
+            showConfirmation('💻', 'Project Work Recorded!', project, activityData['Work On Project'].count);
+        }
+
+        // ========== GYM SECTION ==========
+        function showGymSection() {
+            hideAllSections();
+            const gymSection = document.getElementById('gymSection');
+            const gymItems = document.getElementById('gymItems');
+            
+            gymItems.innerHTML = '';
+            Object.keys(gymData).forEach(muscle => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'menu-item';
+                itemDiv.textContent = muscle;
+                itemDiv.onclick = () => selectGym(muscle);
+                gymItems.appendChild(itemDiv);
+            });
+            
+            gymSection.style.display = 'block';
+            toggleBackButton(true);
+        }
+
+        function selectGym(muscle) {
+            recordActivity('Gym', muscle);
+            showConfirmation('💪', 'Gym Session Recorded!', muscle, activityData['Gym'].count);
+        }
+
+        // ========== FRIENDS SECTION ==========
+        function showFriendsSection() {
+            hideAllSections();
+            const friendsSection = document.getElementById('friendsSection');
+            const friendsItems = document.getElementById('friendsItems');
+            
+            friendsItems.innerHTML = '';
+            friendsData.forEach(friend => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'menu-item';
+                itemDiv.textContent = `📞 ${friend}`;
+                itemDiv.onclick = () => selectFriend(friend);
+                friendsItems.appendChild(itemDiv);
+            });
+            
+            friendsSection.style.display = 'block';
+            toggleBackButton(true);
+        }
+
+        function selectFriend(friend) {
+            recordActivity('Call Your Friends', friend);
+            showConfirmation('📞', 'Call Recorded!', `Called ${friend}`, activityData['Call Your Friends'].count);
+        }
+
+        // ========== EAT SECTION (EXISTING CODE) ==========
+        const restaurantMenus = {
+            jicafe: {
+                name: 'J/I-Cafe',
+                emoji: '🍳',
+                items: ['Fruit Cut 🍉', 'Lime Juice 🍋', 'Pav Bhaji 🍛', 'Boiled Egg 🥚', 'Omelette 🍳', 
+                       'Poached Egg 🥚', 'Paneer/Egg Bhurji 🍳', 'Chocolate Sandwich 🍫', 'Banana 🍌', 'Masala Dosa 🫓']
+            },
+            tasty: {
+                name: 'Tasty',
+                emoji: '🍗',
+                items: ['Al-Fham 🍗', 'Pazampori 🍪', 'Vada 🟤']
+            },
+            mess: {
+                name: 'Mess',
+                emoji: '🍱',
+                type: 'daily',
+                menu: {
+                    'Monday': {
+                        'Breakfast': ['☕ Milk', '🫖 Tea', '☕ Coffee', '🫓 Wheat dosa', '🌶️ Kara Chutney', '🫘 Boiled black Chana', '🍞 Bread', '🧈 Butter', '🥣 Cornflakes'],
+                        'Lunch': ['🍚 Rice (2 types)', '🫓 Chapati', '🥗 Aviyai', '🧀 Matar Paneer', '🍲 Tomato Rasam', '🥜 Fryums', '🥥 Boonddi', '🥛 Raita'],
+                        'Dinner': ['🧀 Veg Matar Kofta/Mix Kofta', '🌶️ Tethi', '🍗 Non-veg Ghee rice', '🍗 Chicken Masala/Butter chicken', '🫓 Roti', '🫓 Chapati']
+                    },
+                    'Tuesday': {
+                        'Breakfast': ['☕ Milk', '🫖 Tea', '☕ Coffee', '🍚 Wheat Upma/Rava Upma', '🟢 Green peas curry', '🥥 Coconut chutney', '🍞 Bread', '🍯 Jam', '🍌 Banana (2)'],
+                        'Lunch': ['🍚 Rice (2 types)', '🥬 Spinach dal', '🥒 Kovakka masala/Kovakka fry', '🫐 Beetroot pachadii', '🫓 Chapati', '🥜 Fryums'],
+                        'Dinner': ['🍚 Fried rice', '🫓 Chapati', '🥗 Veg Vegetable curry', '🥚 Non-Veg Egg Curry', '🍲 Veg Soup', '🍉 Fruit cut/Ice cream']
+                    },
+                    'Wednesday': {
+                        'Breakfast': ['☕ Milk', '🫖 Tea', '☕ Coffee', '🥄 Puttu', '🍚 Poha', '🫘 Kadala curry', '🍅 Tomato Chutney', '🌶️ Sev', '🧅 Chopped onions', '🍌 Bananas (2 nos)', '🍞 Bread', '🍯 Jam'],
+                        'Lunch': ['🍚 Rice (2 types)', '🫓 Chapati', '🍲 Samohsr', '🫘 Rajma', '🥕 Carrot beans poriyal', '🫓 Papod', '🥛 Buttermilk'],
+                        'Dinner': ['🫓 Mix paratha', '🍚 Curd Jeera Rice', '🫘 Chole', '🍯 Gulab Jamun/Laddu']
+                    },
+                    'Thursday': {
+                        'Breakfast': ['☕ Milk', '🫖 Tea', '☕ Coffee', '🫓 Idli (Normal and Fried)', '🥜 Peanut chutney', '🍲 Samohsr', '🌱 Sprouts', '🍞 Bread', '🥜 Peanut Butter'],
+                        'Lunch': ['🍚 Rice (2 types)', '🫓 Chapati', '🥒 Lauki channa dal', '🍲 Rasam', '🥔 Potato fry', '🌶️ Masala papod/Appalam', '🥛 Curd'],
+                        'Dinner': ['🍚 Veg Ghee Rice', '🧀 Kadai Paneer', '🍗 Non-Veg Chicken Biryani', '🥛 Raita']
+                    },
+                    'Friday': {
+                        'Breakfast': ['☕ Milk', '🫖 Tea', '☕ Coffee', '🫓 Poori', '🥔 Aloo masala', '🧅 Chopped Onions', '🌽 Corn flakes', '🍞 Bread', '🥜 Peanut Butter'],
+                        'Lunch': ['🍚 Rice (2 types)', '🍲 Rasam', '🥬 Aloo cabbage peas', '🫘 Lobia masala', '🍲 Parippu (dal)', '🫓 Chapati'],
+                        'Dinner': ['🍚 Rice (2 types)', '🫓 Chapati', '🍆 Mix veg/Brinjal Mezhukkupuratti', '🍲 Dal fry', '🥛 Moru kachiyethu', '🥗 Salad', '🍮 Rice Payasam/Custard']
+                    },
+                    'Saturday': {
+                        'Breakfast': ['☕ Milk', '🫖 Tea', '☕ Coffee', '🍝 Macaroni', '🍅 Tomato sauce', '🥗 Avial', '🍞 Bread', '🥜 Peanut butter', '🍌 Banana (2) white boiled chana salad'],
+                        'Lunch': ['🍚 Pulao', '🫓 Chapati', '🥬 Veg Gobhi semi gravy', '🥚 Non-Veg Egg (1) curry', '🥛 Raita', '🍅 Tomato Dal'],
+                        'Dinner': ['🍲 Vegetable dal (dalma)', '🫓 Chapati', '🍋 Lemon rice/Tomato rice/Tamarind rice', '🫘 White kadala uppery', '🍉 Fruit cut']
+                    },
+                    'Sunday': {
+                        'Breakfast': ['☕ Milk', '🫖 Tea', '☕ Coffee', '🫓 Paratha', '🥔 Aloo matar', '🍞 Bread', '🧈 Butter', '🌱 Sprouts + pomegranates'],
+                        'Lunch': ['🍚 Rice 2 types', '🫓 Chapati', '🥛 Pulissery', '🍲 Moong Dal', '🧀 Veg Paneer peas dry', '🥚 Non-Veg Egg Bhurji', '🍋 Lime juice'],
+                        'Dinner': ['🍚 Kichdi/Bissi Bele bath', '🌶️ Kajgi', '🥗 Dry Chamanthy', '🥬 Cherupayar Thoran', '🥭 Mango Pachdi', '🫓 papod']
+                    }
+                }
+            }
+        };
+
+        let currentDay = 'Monday';
+
+        function showMenu(restaurant) {
+            navigationStack.push('eat');
+            lastRestaurant = restaurant;
+            hideAllSections();
+            const menuSection = document.getElementById('menuSection');
+            const menuTitle = document.getElementById('menuTitle');
+            const menuContainer = document.getElementById('menuContainer');
+            const daySelector = document.getElementById('daySelector');
+
+            menuSection.style.display = 'block';
+            const menu = restaurantMenus[restaurant];
+
+            if (restaurant === 'mess') {
+                menuTitle.textContent = `→ ${menu.emoji} ${menu.name} Menu (Aug-Oct 2025)`;
+                daySelector.style.display = 'grid';
+                
+                const today = new Date().toLocaleDateString('en', {weekday: 'long'});
+                currentDay = today || 'Monday';
+                showDayMenu(currentDay);
+            } else {
+                menuTitle.textContent = `→ Menu — ${menu.emoji} ${menu.name}`;
+                daySelector.style.display = 'none';
+                
+                menuContainer.innerHTML = '<div class="menu-items"></div>';
+                const menuItems = menuContainer.querySelector('.menu-items');
+                menu.items.forEach(item => {
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = 'menu-item';
+                    itemDiv.textContent = item;
+                    itemDiv.onclick = () => selectMenuItem(item, menu.name, menu.emoji);
+                    menuItems.appendChild(itemDiv);
+                });
+            }
+            toggleBackButton(true);
+        }
+
+        function showDayMenu(day) {
+            const menuContainer = document.getElementById('menuContainer');
+            const menu = restaurantMenus.mess.menu[day];
+            
+            document.querySelectorAll('.day-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(`day-${day}`).classList.add('active');
+            
+            currentDay = day;
+            menuContainer.innerHTML = '';
+            
+            Object.entries(menu).forEach(([mealType, items]) => {
+                const mealSection = document.createElement('div');
+                mealSection.className = 'meal-section';
+                
+                const mealHeader = document.createElement('div');
+                mealHeader.className = 'meal-header';
+                mealHeader.id = `${mealType}-header`;
+                mealHeader.onclick = () => toggleMeal(mealType);
+                
+                const mealTitle = document.createElement('span');
+                mealTitle.textContent = `🍽️ ${mealType.toUpperCase()}`;
+                
+                const icon = document.createElement('span');
+                icon.className = 'collapse-icon';
+                icon.id = `${mealType}-icon`;
+                icon.textContent = '▼';
+                
+                mealHeader.appendChild(mealTitle);
+                mealHeader.appendChild(icon);
+                
+                const mealContent = document.createElement('div');
+                mealContent.className = 'meal-content';
+                mealContent.id = `${mealType}-content`;
+                
+                const menuItems = document.createElement('div');
+                menuItems.className = 'menu-items';
+                
+                items.forEach(item => {
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = 'menu-item';
+                    itemDiv.textContent = item;
+                    itemDiv.onclick = () => selectMenuItem(item, 'Mess', '🍱', `${day} ${mealType}`);
+                    menuItems.appendChild(itemDiv);
+                });
+                
+                mealContent.appendChild(menuItems);
+                mealSection.appendChild(mealHeader);
+                mealSection.appendChild(mealContent);
+                menuContainer.appendChild(mealSection);
+            });
+        }
+
+        function selectMenuItem(item, restaurant, emoji, mealInfo = '') {
+            recordActivity('Eat', item);
+            const details = mealInfo ? `FROM ${emoji} ${restaurant.toUpperCase()}\n${mealInfo.toUpperCase()}` : `FROM ${emoji} ${restaurant.toUpperCase()}`;
+            showConfirmation('🍽️', `Enjoy Your ${item}!`, details, activityData['Eat'].count);
+        }
+    </script>
+</body>
+</html>
