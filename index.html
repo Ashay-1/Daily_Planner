@@ -1006,9 +1006,6 @@
                     <button class="activity-btn" onclick="showActivity('Work On Project')">
                         <span>💻 Work On Project</span>
                     </button>
-                    <button class="activity-btn" onclick="showActivity('Talk With Girlfriend')">
-                        <span>💑 Talk With Girlfriend</span>
-                    </button>
                     <button class="activity-btn" onclick="showActivity('Gym')">
                         <span>💪 Gym</span>
                     </button>
@@ -1179,7 +1176,6 @@
             'Eat': { emoji: '🍽️', count: 0, color: '#667eea', items: {} },
             'Study': { emoji: '📚', count: 0, color: '#ffd93d', items: {} },
             'Work On Project': { emoji: '💻', count: 0, color: '#6bcf7f', items: {} },
-            'Talk With Girlfriend': { emoji: '💑', count: 0, color: '#ff6b9d', items: {} },
             'Gym': { emoji: '💪', count: 0, color: '#ff8c42', items: {} },
             'Call Your Friends': { emoji: '📞', count: 0, color: '#9b59b6', items: {} },
             'Sleep': { emoji: '😴', count: 0, color: '#4a5568', items: {} }
@@ -1595,9 +1591,6 @@
                 showGymSection();
             } else if (activity === 'Call Your Friends') {
                 showFriendsSection();
-            } else if (activity === 'Talk With Girlfriend') {
-                recordActivity(activity, 'General');
-                showConfirmation('💑', 'Talk With Girlfriend Recorded!', 'Activity logged successfully', activityData[activity].count);
             } else if (activity === 'Sleep') {
                 recordActivity(activity, 'Sleep Session');
                 showConfirmation('😴', 'Sleep Session Recorded!', 'Sweet dreams! Rest well 💤', activityData[activity].count);
